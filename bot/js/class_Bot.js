@@ -7,9 +7,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-import { Board } from "./class_Board.js";
+import { Board, INFINITY } from "./class_Board.js";
 import { allMoves } from "./common.js";
-import { ErrorNoPrevMove, ErrorTreeNotBuilt } from "./error_Board.js";
+import { ErrorGameOver, ErrorNoPrevMove, ErrorTreeNotBuilt } from "./error_Bot.js";
 function boardDepth(board) {
     return board.turn * 2 + (board.redToPlay ? 0 : 1);
 }
@@ -53,7 +53,7 @@ export class Bot {
         }
         else {
             let nextnextBoards = nextBoard.nextBoards;
-            let point = -100000;
+            let point = -INFINITY;
             let move;
             if (nextnextBoards.length <= 0)
                 throw new ErrorTreeNotBuilt();
@@ -81,7 +81,7 @@ export class Bot {
         }
         else {
             let nextnextBoards = nextBoard.nextBoards;
-            let point = 100000;
+            let point = INFINITY;
             let move;
             if (nextnextBoards.length <= 0)
                 throw new ErrorTreeNotBuilt();
@@ -102,7 +102,7 @@ export class Bot {
     }
     _minMaxAlphaBeta() {
         return __awaiter(this, void 0, void 0, function* () {
-            let alphaBeta = { alpha: -100000, beta: 100000 };
+            let alphaBeta = { alpha: -INFINITY, beta: INFINITY };
             let minMaxOutput;
             if (this.botIsRed)
                 minMaxOutput = this._maxAlphaBeta(this.board, alphaBeta);
@@ -113,8 +113,10 @@ export class Bot {
     }
     _minAlphaBeta(board, alphaBeta) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!board.prevMove)
+                throw new ErrorNoPrevMove(board);
             if (boardDepth(board) - boardDepth(this.board) >= this.searchDepth) {
-                return this._quickReturn(board);
+                return { point: board.getPoint(), move: board.prevMove };
             }
             else {
                 let waiter;
@@ -122,13 +124,26 @@ export class Bot {
                     waiter = board.buildBoardLayer();
                     console.log("Tree is not built here, build more");
                 }
-                let point = 100000;
+                let point = INFINITY;
                 let move;
-                if (waiter)
-                    yield waiter;
+                if (waiter) {
+                    try {
+                        yield waiter;
+                    }
+                    catch (errorGameOver) {
+                        if (errorGameOver instanceof ErrorGameOver) {
+                            move = board.prevMove;
+                            switch (errorGameOver.result) {
+                                case 1: return { point: INFINITY, move: move };
+                                case 0: return { point: 0, move: move };
+                                case -1: return { point: -INFINITY, move: move };
+                            }
+                        }
+                        else
+                            throw errorGameOver;
+                    }
+                }
                 let nextBoards = board.nextBoards;
-                if (nextBoards.length <= 0)
-                    this._quickReturn(board);
                 for (let i = 0; i < nextBoards.length; i++) {
                     let maxValue = yield this._maxAlphaBeta(nextBoards[i], alphaBeta);
                     if (point > maxValue.point) {
@@ -148,8 +163,10 @@ export class Bot {
     }
     _maxAlphaBeta(board, alphaBeta) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (!board.prevMove)
+                throw new ErrorNoPrevMove(board);
             if (boardDepth(board) - boardDepth(this.board) >= this.searchDepth) {
-                return this._quickReturn(board);
+                return { point: board.getPoint(), move: board.prevMove };
             }
             else {
                 let waiter;
@@ -157,13 +174,26 @@ export class Bot {
                     waiter = board.buildBoardLayer();
                     console.log("Tree is not built here, build more");
                 }
-                let point = -100000;
+                let point = -INFINITY;
                 let move;
-                if (waiter)
-                    yield waiter;
+                if (waiter) {
+                    try {
+                        yield waiter;
+                    }
+                    catch (errorGameOver) {
+                        if (errorGameOver instanceof ErrorGameOver) {
+                            move = board.prevMove;
+                            switch (errorGameOver.result) {
+                                case 1: return { point: INFINITY, move: move };
+                                case 0: return { point: 0, move: move };
+                                case -1: return { point: -INFINITY, move: move };
+                            }
+                        }
+                        else
+                            throw errorGameOver;
+                    }
+                }
                 let nextBoards = board.nextBoards;
-                if (nextBoards.length <= 0)
-                    this._quickReturn(board);
                 for (let i = 0; i < nextBoards.length; i++) {
                     let minValue = yield this._minAlphaBeta(nextBoards[i], alphaBeta);
                     if (point < minValue.point) {
@@ -180,12 +210,6 @@ export class Bot {
                     throw new Error("Unknown Error");
             }
         });
-    }
-    _quickReturn(board) {
-        if (board.prevMove)
-            return { point: board.getPoint(), move: board.prevMove };
-        else
-            throw new ErrorNoPrevMove(board);
     }
 }
 class BoardBot extends Board {

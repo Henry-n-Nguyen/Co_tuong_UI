@@ -1,8 +1,8 @@
-import { Board } from "./class_Board.js"
+import { Board, INFINITY } from "./class_Board.js"
 import { allMoves } from "./common.js"
 import type { Move } from "./class_Board.js";
 import { Piece } from "./class_Piece.js";
-import { ErrorNoPrevMove, ErrorTreeNotBuilt } from "./error_Board.js";
+import { ErrorGameOver, ErrorNoPrevMove, ErrorTreeNotBuilt } from "./error_Bot.js";
 
 type AlphaBeta = {
     alpha: number,
@@ -72,7 +72,7 @@ export class Bot {
             else throw new ErrorNoPrevMove(nextBoard);
         } else {
             let nextnextBoards = nextBoard.nextBoards;
-            let point = -100_000;
+            let point = -INFINITY;
             let move: Move | undefined;
             if (nextnextBoards.length <= 0) throw new ErrorTreeNotBuilt();
             for (let i = 0; i < nextnextBoards.length; i++) {
@@ -94,7 +94,7 @@ export class Bot {
             else throw new ErrorNoPrevMove(nextBoard);
         } else {
             let nextnextBoards = nextBoard.nextBoards;
-            let point = 100_000;
+            let point = INFINITY;
             let move: Move | undefined;
             if (nextnextBoards.length <= 0) throw new ErrorTreeNotBuilt();
             for (let i = 0; i < nextnextBoards.length; i++) {
@@ -115,7 +115,7 @@ export class Bot {
 
     //#region min-max with alpha-beta prune
     async _minMaxAlphaBeta() {
-        let alphaBeta = { alpha: -100_000, beta: 100_000 };
+        let alphaBeta = { alpha: -INFINITY, beta: INFINITY };
 
         let minMaxOutput: Promise<MinMaxOutput>;
 
@@ -126,8 +126,10 @@ export class Bot {
     }
 
     async _minAlphaBeta(board: BoardBot, alphaBeta: AlphaBeta): Promise<MinMaxOutput> {
+        if (!board.prevMove) throw new ErrorNoPrevMove(board);
+
         if (boardDepth(board) - boardDepth(this.board) >= this.searchDepth) {
-            return this._quickReturn(board);
+            return { point: board.getPoint(), move: board.prevMove };
         } else {
             let waiter: Promise<void> | undefined;
             if (board.nextBoards.length <= 0) {
@@ -135,12 +137,24 @@ export class Bot {
                 console.log("Tree is not built here, build more");
             }
 
-            let point = 100_000;
+            let point = INFINITY;
             let move: Move | undefined;
 
-            if (waiter) await waiter;
+            if (waiter) {
+                try {
+                    await waiter;
+                } catch (errorGameOver) {
+                    if (errorGameOver instanceof ErrorGameOver) {
+                        move = board.prevMove;
+                        switch (errorGameOver.result) {
+                            case 1: return { point: INFINITY, move: move };
+                            case 0: return { point: 0, move: move };
+                            case -1: return { point: -INFINITY, move: move };
+                        }
+                    } else throw errorGameOver;
+                }
+            }
             let nextBoards = board.nextBoards;
-            if (nextBoards.length <= 0) this._quickReturn(board); // no available move from this
             for (let i = 0; i < nextBoards.length; i++) {
                 // v = min (x, _maxValue)
                 let maxValue = await this._maxAlphaBeta(nextBoards[i], alphaBeta);
@@ -162,20 +176,35 @@ export class Bot {
     }
 
     async _maxAlphaBeta(board: BoardBot, alphaBeta: AlphaBeta): Promise<MinMaxOutput> {
+        if (!board.prevMove) throw new ErrorNoPrevMove(board);
+
         if (boardDepth(board) - boardDepth(this.board) >= this.searchDepth) {
-            return this._quickReturn(board);
+            return { point: board.getPoint(), move: board.prevMove };
         } else {
             let waiter: Promise<void> | undefined;
             if (board.nextBoards.length <= 0) {
                 waiter = board.buildBoardLayer();
                 console.log("Tree is not built here, build more");
             }
-            let point = -100_000;
+
+            let point = -INFINITY;
             let move: Move | undefined
 
-            if (waiter) await waiter;
+            if (waiter) {
+                try {
+                    await waiter;
+                } catch (errorGameOver) {
+                    if (errorGameOver instanceof ErrorGameOver) {
+                        move = board.prevMove;
+                        switch (errorGameOver.result) {
+                            case 1: return { point: INFINITY, move: move };
+                            case 0: return { point: 0, move: move };
+                            case -1: return { point: -INFINITY, move: move };
+                        }
+                    } else throw errorGameOver;
+                }
+            }
             let nextBoards = board.nextBoards;
-            if (nextBoards.length <= 0) this._quickReturn(board); // no available move from this
             for (let i = 0; i < nextBoards.length; i++) {
                 // v = max (x, _minValue)
                 let minValue = await this._minAlphaBeta(nextBoards[i], alphaBeta);
@@ -195,12 +224,6 @@ export class Bot {
             else throw new Error("Unknown Error");
         }
     }
-
-    _quickReturn(board: BoardBot) {
-        if (board.prevMove) return { point: board.getPoint(), move: board.prevMove }
-        else throw new ErrorNoPrevMove(board);
-    }
-
     //#endregion
 }
 
@@ -241,6 +264,7 @@ class BoardBot extends Board {
     /**
      * Build the next layer if not existed yet
      * Set value for nextBoards if empty 
+     * @throws ErrorGameOver if this board has no valid moves 
      */
     async buildBoardLayer() {
         if (this.nextBoards.length <= 0) {

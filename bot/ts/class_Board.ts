@@ -1,10 +1,13 @@
 import { Xe, Ma, Vua, Si, Tuong, Phao, Tot, Piece } from "./class_Piece.js"
 import type { PiecePosition } from "./class_Piece.js";
+import { ErrorNoPieceOnBoard, ErrorNoPieceOnRecord } from "./error_Board.js";
 
 export type Move = {
     oldPosition: PiecePosition,
     newPosition: PiecePosition
 }
+
+export const INFINITY = 100_000;
 
 function parseSideToPlay(isRedPlay: (boolean | string | number | undefined)): boolean {
     let isRedPlayBool: boolean = true;
@@ -17,7 +20,7 @@ function parseSideToPlay(isRedPlay: (boolean | string | number | undefined)): bo
             break
         case "number":
             isRedPlay = Math.sign(isRedPlay);
-            if (isRedPlay == 0) throw new Error("Invalid isRedPlay value = 0");
+            // if (isRedPlay == 0) throw new Error("Invalid isRedPlay value = 0");
             isRedPlayBool = isRedPlay > 0 ? true : false;
             break
         case "boolean":
@@ -157,7 +160,7 @@ export class Board {
     _movePiece(move: Move) {
         let { x, y } = move.oldPosition;
         let thisPiece = this.piecesPositionOnBoard[x][y];
-        if (!thisPiece) throw new Error("There is no piece on old position:" + move.oldPosition);
+        if (!thisPiece) throw new ErrorNoPieceOnBoard(this, move);
 
         let { x: newX, y: newY } = move.newPosition;
         this.piecesPositionOnBoard[x][y] = null;
@@ -169,14 +172,7 @@ export class Board {
 
         if (captured) {
             const capturedIndex = this.onBoardPieces.findIndex(x => { x == captured });
-            if (capturedIndex < 0) {
-                const template = "The captured Piece {pieceStr} was at [{x}, {y}] but wasn't exist in onBoardPieces";
-                const message = template
-                    .replace("{pieceStr}", captured.toString())
-                    .replace("{x}", newX + "")
-                    .replace("{y}", newY + "");
-                throw new Error(message);
-            }
+            if (capturedIndex < 0) throw new ErrorNoPieceOnRecord(captured);
             this.onBoardPieces.splice(capturedIndex, 1); // NOTE: 1 causes onBoardPieces lose a piece in old implementation
         }
         return { captured: captured, board: this };

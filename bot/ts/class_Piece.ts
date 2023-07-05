@@ -184,17 +184,6 @@ export class Piece {
 
 }
 
-POSITION_VALUES.Xe = [
-    [3, 3, 3, 3, 4, 4, 2, -1, 0, -3],
-    [4, 6, 4, 6, 5, 6, 4, 4, 4, 3],
-    [3, 4, 3, 6, 5, 6, 2, 2, 3, 2],
-    [6, 8, 7, 8, 7, 7, 6, 6, 6, 6],
-    [7, 16, 8, 8, 7, 7, 7, 6, 0, 0],
-    [6, 8, 7, 8, 7, 7, 6, 6, 6, 6],
-    [3, 4, 3, 6, 5, 6, 2, 2, 3, 2],
-    [4, 6, 4, 6, 5, 6, 4, 4, 4, 3],
-    [3, 3, 3, 3, 4, 4, 2, -1, 0, -3]
-];
 export class Xe extends Piece {
 
     constructor(isRedPiece: (boolean | string | number), position: PiecePosition) {
